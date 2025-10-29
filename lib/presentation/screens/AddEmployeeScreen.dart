@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../../core/navigation/AppRoutes.dart';
+
 class AddEmployeeScreen extends StatefulWidget {
   const AddEmployeeScreen({super.key});
 
@@ -12,37 +14,50 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add New Employee'),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Employee Name Input
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Employee Name',
-                hintText: 'Enter employee name',
-                border: OutlineInputBorder(),
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Add New Employee',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Employee Name',
+              hintText: 'Enter employee name',
+              border: OutlineInputBorder(),
             ),
-            const SizedBox(height: 20),
-
-            // Next Button
-            ElevatedButton(
-              onPressed:  _goToFaceCapture,
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _goToFaceCapture,
               child: const Text('Next'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   void _goToFaceCapture() {
+    if (_nameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter employee name')),
+      );
+      return;
+    }
+
+    Navigator.pop(context);
     Navigator.pushNamed(
       context,
       AppRoutes.faceCapture,

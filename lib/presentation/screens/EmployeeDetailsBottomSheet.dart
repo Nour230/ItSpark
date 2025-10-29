@@ -1,25 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:io';
 
 import '../../data/models/EmployeeModel.dart';
 import '../cubit/EmployeeCubit.dart';
 import '../cubit/EmployeeState.dart';
 import 'FaceCaptureScreen.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-class EmployeeDetailsScreen extends StatefulWidget {
+class EmployeeDetailsBottomSheet extends StatefulWidget {
   final EmployeeModel employee;
 
-  const EmployeeDetailsScreen({
-    super.key,
-    required this.employee,
-  });
+  const EmployeeDetailsBottomSheet({super.key, required this.employee});
 
   @override
-  State<EmployeeDetailsScreen> createState() => _EmployeeDetailsScreenState();
+  State<EmployeeDetailsBottomSheet> createState() => _EmployeeDetailsBottomSheetState();
 }
 
-class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
+class _EmployeeDetailsBottomSheetState extends State<EmployeeDetailsBottomSheet> {
   late TextEditingController _nameController;
   late EmployeeModel _currentEmployee;
 
@@ -40,76 +37,72 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
           );
         }
       },
-      child: Scaffold(
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView(
-                    children: [
-                      const Text(
-                        'Employee Details',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 5,
+                margin: const EdgeInsets.only(bottom: 15),
+                decoration: BoxDecoration(
+                  color: Colors.grey[400],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+
+              const Text(
+                'Employee Details',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+
+              _buildProfilePictureSection(),
+              const SizedBox(height: 20),
+
+              _buildReadOnlyField(
+                label: 'Employee ID',
+                value: _currentEmployee.id?.toString() ?? 'N/A',
+              ),
+              const SizedBox(height: 20),
+
+              _buildNameField(),
+              const SizedBox(height: 25),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _saveChanges,
+                      icon: const Icon(Icons.save),
+                      label: const Text('Save'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
                       ),
-                      const SizedBox(height: 30),
-
-                      // Profile Picture
-                      _buildProfilePictureSection(),
-                      const SizedBox(height: 30),
-
-                      // Employee ID
-                      _buildReadOnlyField(
-                        label: 'Employee ID',
-                        value: _currentEmployee.id?.toString() ?? 'N/A',
-                      ),
-                      const SizedBox(height: 30),
-
-                      // Name
-                      _buildNameField(),
-                      const SizedBox(height: 30),
-
-                    ],
+                    ),
                   ),
-                ),
-
-                // Save & Delete Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _saveChanges,
-                        icon: const Icon(Icons.save_as_outlined),
-                        label: const Text('Save Changes'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _showDeleteDialog,
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Delete'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _showDeleteDialog,
-                        icon: const Icon(Icons.delete),
-                        label: const Text('Delete'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -161,36 +154,31 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Profile Picture',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        const Text('Profile Picture', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Center(
           child: Stack(
             alignment: Alignment.bottomRight,
             children: [
               FutureBuilder<File>(
-                future: _getImageFile(_currentEmployee.profileImagePath),
+                future: Future.value(File(_currentEmployee.profileImagePath)),
                 builder: (context, snapshot) {
                   if (snapshot.hasData && snapshot.data!.existsSync()) {
                     return CircleAvatar(
                       backgroundImage: FileImage(snapshot.data!),
-                      radius: 60,
+                      radius: 50,
                     );
                   }
                   return CircleAvatar(
-                    backgroundColor: Colors.blue,
-                    radius: 60,
+                    backgroundColor: Colors.black,
+                    radius: 50,
                     child: Text(
                       _currentEmployee.name[0].toUpperCase(),
-                      style: const TextStyle(fontSize: 30, color: Colors.white),
+                      style: const TextStyle(fontSize: 28, color: Colors.white),
                     ),
                   );
                 },
               ),
-
-              // ✏️ Edit Icon
               Positioned(
                 bottom: 0,
                 right: 4,
@@ -198,12 +186,12 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
                   onTap: _updateImages,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.orange,
+                      color: Colors.black87,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
                     ),
                     padding: const EdgeInsets.all(8),
-                    child: const Icon(Icons.edit, size: 20, color: Colors.white),
+                    child: const Icon(Icons.edit, size: 18, color: Colors.white),
                   ),
                 ),
               ),
@@ -213,10 +201,6 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
       ],
     );
   }
-
-
-
-  Future<File> _getImageFile(String path) async => File(path);
 
   void _updateImages() async {
     final result = await Navigator.push(
@@ -231,40 +215,18 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
     if (result == true) _refreshEmployeeData();
   }
 
-  void _saveChanges() async {
+  void _saveChanges() {
     if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter employee name')),
       );
       return;
     }
-    try {
-      context.read<EmployeeCubit>().updateEmployee(_currentEmployee);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Changes saved successfully')),
-      );
-      Navigator.pop(context);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving changes: $e')),
-      );
-    }
-  }
-
-  Future<void> _refreshEmployeeData() async {
-    context.read<EmployeeCubit>().loadEmployees();
-    await Future.delayed(const Duration(milliseconds: 500));
-    final state = context.read<EmployeeCubit>().state;
-    if (state is EmployeeLoaded) {
-      final updatedEmployee = state.employees.firstWhere(
-            (emp) => emp.id == _currentEmployee.id,
-        orElse: () => _currentEmployee,
-      );
-      setState(() {
-        _currentEmployee = updatedEmployee;
-        _nameController.text = updatedEmployee.name;
-      });
-    }
+    context.read<EmployeeCubit>().updateEmployee(_currentEmployee);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Changes saved successfully')),
+    );
+    Navigator.pop(context);
   }
 
   void _showDeleteDialog() {
@@ -285,20 +247,19 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
     );
   }
 
-  void _deleteEmployee() async {
-    try {
-      if (_currentEmployee.id != null) {
-        await context.read<EmployeeCubit>().deleteEmployee(_currentEmployee.id!);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${_currentEmployee.name} deleted successfully')),
-        );
-        Navigator.popUntil(context, (route) => route.isFirst);
-      }
-    } catch (e) {
+  void _deleteEmployee() {
+    if (_currentEmployee.id != null) {
+      context.read<EmployeeCubit>().deleteEmployee(_currentEmployee.id!);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error deleting employee: $e')),
+        SnackBar(content: Text('${_currentEmployee.name} deleted successfully')),
       );
+      Navigator.pop(context);
+      Navigator.pop(context);
     }
+  }
+
+  Future<void> _refreshEmployeeData() async {
+    context.read<EmployeeCubit>().loadEmployees();
   }
 
   @override
