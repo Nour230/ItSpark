@@ -7,6 +7,8 @@ import '../../data/services/RealFaceRecognitionService.dart'; // ⬅️ غيرت
 import '../cubit/EmployeeCubit.dart';
 import '../../data/models/EmployeeModel.dart';
 import '../cubit/EmployeeState.dart';
+import '../../core/navigation/AppRoutes.dart';
+
 
 class FaceRecognitionScreen extends StatefulWidget {
   const FaceRecognitionScreen({super.key});
@@ -108,6 +110,7 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
     return Colors.blue;
   }
 
+
   void _recognizeFace() async {
     if (!_isModelLoaded) {
       setState(() {
@@ -179,7 +182,7 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
         });
 
         try {
-          // Compare with employee's profile image first - ⬅️ فكيت التعليق
+          // Compare with employee's profile image first
           final similarity = await _faceRecognitionService.compareFaces(
               capturedImagePath,
               employee.profileImagePath
@@ -187,7 +190,7 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
 
           print('Similarity with ${employee.name}: $similarity');
 
-          // If high similarity, we found our employee - ⬅️ فكيت التعليق
+          // If high similarity, we found our employee
           if (similarity > highestSimilarity) {
             highestSimilarity = similarity;
             recognizedEmployee = employee;
@@ -197,17 +200,28 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
         }
       }
 
-      // 5. Show result based on similarity threshold
+      // 5. Show result and navigate to details
       if (recognizedEmployee != null && highestSimilarity > 0.6) {
         setState(() {
-          _statusMessage = '✅ Employee found: ${recognizedEmployee?.name} (${(highestSimilarity * 100).toStringAsFixed(1)}% match)';
+          _statusMessage = '✅ Employee found: ${recognizedEmployee?.name}';
         });
 
-        // هنا في الخطوة الجاية هنضيف الانتقال لشاشة التفاصيل
+        // انتقل فوراً لصفحة التفاصيل
+        Navigator.pushNamed(
+          context,
+          AppRoutes.employeeDetails,
+          arguments: recognizedEmployee,
+        );
 
       } else {
         setState(() {
-          _statusMessage = '❌ Employee not found. Best match: ${(highestSimilarity * 100).toStringAsFixed(1)}%';
+          _statusMessage = '❌ Employee not found';
+        });
+
+        // انتظر 2 ثواني ثم إعادة التعرف
+        await Future.delayed(Duration(seconds: 2));
+        setState(() {
+          _statusMessage = 'Ready for recognition - Show your face';
         });
       }
 
@@ -217,6 +231,7 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
       });
     }
   }
+
 
   @override
   void dispose() {

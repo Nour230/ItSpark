@@ -1,6 +1,5 @@
 import 'package:camera/camera.dart';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 
 class CameraService {
   CameraController? _controller;
