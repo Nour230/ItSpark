@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../core/navigation/AppRoutes.dart';
 import 'AddEmployeeScreen.dart';
 import 'EmployeeListScreen.dart';
@@ -23,9 +22,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body:SafeArea(
-          child:
-      _screens[_currentIndex],
+      body: SafeArea(
+        child: _screens[_currentIndex],
       ),
       bottomNavigationBar: ClipRRect(
         borderRadius: const BorderRadius.only(
@@ -54,15 +52,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      // ✅ Show FAB only when currentIndex == 0 (Home tab)
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
         foregroundColor: Colors.white,
         backgroundColor: Colors.black,
         onPressed: _addEmployee,
         child: const Icon(Icons.person_add),
-      ),
+      )
+          : null,
     );
   }
-
 
   void _addEmployee() {
     showModalBottomSheet(
@@ -74,8 +74,5 @@ class _HomeScreenState extends State<HomeScreen> {
         child: const AddEmployeeScreen(),
       ),
     );
-
   }
 }
-
-

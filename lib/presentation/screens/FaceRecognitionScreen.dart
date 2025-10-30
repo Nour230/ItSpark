@@ -1,14 +1,17 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+
 import '../../data/services/CameraService.dart';
 import '../../data/services/FaceDetectionService.dart';
-import '../../data/services/RealFaceRecognitionService.dart'; // ⬅️ غيرت هنا
+import '../../data/services/RealFaceRecognitionService.dart';
 import '../cubit/EmployeeCubit.dart';
 import '../../data/models/EmployeeModel.dart';
-import '../cubit/EmployeeState.dart';
 import '../../core/navigation/AppRoutes.dart';
-
+import '../cubit/EmployeeState.dart';
 
 class FaceRecognitionScreen extends StatefulWidget {
   const FaceRecognitionScreen({super.key});
@@ -19,10 +22,12 @@ class FaceRecognitionScreen extends StatefulWidget {
 
 class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
   late CameraService _cameraService;
+  late FaceDetectionService _faceDetectionService;
+  late RealFaceRecognitionService _faceRecognitionService;
+
   bool _isCameraReady = false;
+  bool _isRecognizing = false;
   String _statusMessage = 'Initializing camera...';
-  late RealFaceRecognitionService _faceRecognitionService; // ⬅️ غيرت هنا
-  bool _isModelLoaded = false;
 
   @override
   void initState() {
@@ -32,71 +37,228 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
 
   Future<void> _initializeServices() async {
     try {
-      // 1. Initialize Camera
       _cameraService = CameraService();
-      await _cameraService.initializeCamera();
+      _faceDetectionService = FaceDetectionService();
+      _faceRecognitionService = RealFaceRecognitionService();
 
-      // 2. Initialize Face Recognition Service
-      _faceRecognitionService = RealFaceRecognitionService(); // ⬅️ غيرت هنا
-      await _faceRecognitionService.loadModel(); // ⬅️ فكيت التعليق
+      // Camera initialization with frame callback
+      await _cameraService.initializeCamera((frame) {
+        // كل Frame يمكن استخدامه لاحقًا
+      });
 
       setState(() {
         _isCameraReady = true;
-        _isModelLoaded = true;
-        _statusMessage = 'Ready for recognition - Show your face';
+        _statusMessage = 'Ready - Show your face';
       });
-
     } catch (e) {
       setState(() {
-        _statusMessage = 'Initialization error: $e';
+        _statusMessage = '❌ Initialization error: $e';
       });
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Face Recognition'),
-      ),
-      body: Column(
+  Future<void> _recognizeFace() async {
+    if (!_isCameraReady || _isRecognizing) return;
+
+    setState(() {
+      _isRecognizing = true;
+      _statusMessage = 'Capturing image...';
+    });
+
+    try {
+      // 1️⃣ Capture image
+      final imageFile = await _cameraService.takePicture();
+      final capturedImagePath = imageFile.path;
+
+      // 2️⃣ Convert to InputImage
+      final inputImage = InputImage.fromFilePath(capturedImagePath);
+
+      // 3️⃣ Detect face
+      final detectionResult = await _faceDetectionService.isFaceDetected(inputImage);
+      if (!detectionResult['isValidFace']) {
+        setState(() {
+          _statusMessage = '❌ ${detectionResult['message']}';
+          _isRecognizing = false;
+        });
+        return;
+      }
+
+      final Face capturedFace = detectionResult['face'];
+
+      // 4️⃣ Load employees
+      await context.read<EmployeeCubit>().loadEmployees();
+      final state = context.read<EmployeeCubit>().state;
+
+      if (state is! EmployeeLoaded || state.employees.isEmpty) {
+        setState(() {
+          _statusMessage = '❌ No employees in database';
+          _isRecognizing = false;
+        });
+        return;
+      }
+
+      final employees = state.employees;
+      setState(() {
+        _statusMessage = '🔍 Comparing with ${employees.length} employees...';
+      });
+
+      // 5️⃣ Compare with employees
+      EmployeeModel? recognizedEmployee;
+      double highestSimilarity = 0.0;
+
+      for (final employee in employees) {
+        try {
+          final employeeInputImage = InputImage.fromFilePath(employee.profileImagePath);
+          final employeeDetection = await _faceDetectionService.isFaceDetected(employeeInputImage);
+
+          if (!employeeDetection['isValidFace']) continue;
+
+          final Face employeeFace = employeeDetection['face'];
+
+          final similarity = await _faceRecognitionService.compareFaces(capturedFace, employeeFace);
+          if (similarity > highestSimilarity) {
+            highestSimilarity = similarity;
+            recognizedEmployee = employee;
+          }
+        } catch (e) {
+          print('Error comparing with ${employee.name}: $e');
+        }
+      }
+
+      // 6️⃣ Show result
+      if (recognizedEmployee != null && highestSimilarity > 0.6) {
+        setState(() {
+          _statusMessage = '✅ Employee recognized: ${recognizedEmployee?.name}';
+        });
+
+        // عرض البيانات في popup بدلاً من الانتقال لصفحة التفاصيل
+        _showEmployeePopup(recognizedEmployee);
+
+      } else {
+        setState(() {
+          _statusMessage = '❌ Employee not found';
+        });
+
+        await Future.delayed(const Duration(seconds: 4));
+        if (mounted) {
+          setState(() {
+            _statusMessage = 'Ready - Show your face';
+          });
+        }
+      }
+
+    } catch (e) {
+      setState(() {
+        _statusMessage = '❌ Recognition error: $e';
+      });
+    } finally {
+      setState(() {
+        _isRecognizing = false;
+      });
+    }
+  }
+
+  void _showEmployeePopup(EmployeeModel employee) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // المستخدم مايقدرش يغلق الدايلوج بالضغط خارجها
+      builder: (BuildContext context) {
+        // تأخير إغلاق البوب أب تلقائياً بعد 3 ثواني
+        Future.delayed(const Duration(seconds: 3), () {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        });
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.verified, color: Colors.green.shade700),
+              const SizedBox(width: 8),
+              const Text('Employee Recognized'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // صورة الموظف
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.green, width: 3),
+                  image: DecorationImage(
+                    image: FileImage(File(employee.profileImagePath)),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // بيانات الموظف
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    _buildInfoRow('ID', employee.id.toString()),
+                    _buildInfoRow('Name', employee.name),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              Text(
+                'This popup will close automatically',
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  _statusMessage = 'Ready - Show your face';
+                });
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
         children: [
-          // Status Message
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _getStatusColor(),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              _statusMessage,
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
             ),
           ),
-
-          // Camera Preview
           Expanded(
-            child: _isCameraReady
-                ? CameraPreview(_cameraService.controller!)
-                : Center(child: CircularProgressIndicator()),
-          ),
-
-          // Recognize Button
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: ElevatedButton(
-              onPressed: _isCameraReady ? _recognizeFace : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                minimumSize: Size(double.infinity, 50),
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
               ),
-              child: Text('Recognize Face'),
             ),
           ),
         ],
@@ -110,133 +272,54 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
     return Colors.blue;
   }
 
-
-  void _recognizeFace() async {
-    if (!_isModelLoaded) {
-      setState(() {
-        _statusMessage = '❌ Face recognition model not loaded';
-      });
-      return;
-    }
-
-    setState(() {
-      _statusMessage = 'Capturing image...';
-    });
-
-    try {
-      // 1. Capture image
-      final imageFile = await _cameraService.takePicture();
-      final capturedImagePath = imageFile.path;
-
-      setState(() {
-        _statusMessage = 'Detecting face...';
-      });
-
-      // 2. Face detection
-      final faceDetectionService = FaceDetectionService();
-      final detectionResult = await faceDetectionService.isFaceDetectedWithDetails(capturedImagePath);
-
-      if (!detectionResult['isValidFace']) {
-        setState(() {
-          _statusMessage = '❌ ${detectionResult['message']}';
-        });
-        return;
-      }
-
-      setState(() {
-        _statusMessage = '✅ Face detected! Searching employees...';
-      });
-
-      // 3. Get all employees for comparison
-      await context.read<EmployeeCubit>().loadEmployees();
-      final state = context.read<EmployeeCubit>().state;
-      List<EmployeeModel> employees = [];
-
-      if (state is EmployeeLoaded) {
-        employees = state.employees;
-      } else {
-        setState(() {
-          _statusMessage = '❌ Error loading employees';
-        });
-        return;
-      }
-
-      if (employees.isEmpty) {
-        setState(() {
-          _statusMessage = '❌ No employees in database';
-        });
-        return;
-      }
-
-      setState(() {
-        _statusMessage = '🔍 Comparing with ${employees.length} employees...';
-      });
-
-      // 4. Compare with each employee using Face Recognition
-      EmployeeModel? recognizedEmployee;
-      double highestSimilarity = 0.0;
-
-      for (final employee in employees) {
-        setState(() {
-          _statusMessage = '🔍 Checking: ${employee.name}...';
-        });
-
-        try {
-          // Compare with employee's profile image first
-          final similarity = await _faceRecognitionService.compareFaces(
-              capturedImagePath,
-              employee.profileImagePath
-          );
-
-          print('Similarity with ${employee.name}: $similarity');
-
-          // If high similarity, we found our employee
-          if (similarity > highestSimilarity) {
-            highestSimilarity = similarity;
-            recognizedEmployee = employee;
-          }
-        } catch (e) {
-          print('Error comparing with ${employee.name}: $e');
-        }
-      }
-
-      // 5. Show result and navigate to details
-      if (recognizedEmployee != null && highestSimilarity > 0.6) {
-        setState(() {
-          _statusMessage = '✅ Employee found: ${recognizedEmployee?.name}';
-        });
-
-        // انتقل فوراً لصفحة التفاصيل
-        Navigator.pushNamed(
-          context,
-          AppRoutes.employeeDetails,
-          arguments: recognizedEmployee,
-        );
-
-      } else {
-        setState(() {
-          _statusMessage = '❌ Employee not found';
-        });
-
-        // انتظر 2 ثواني ثم إعادة التعرف
-        await Future.delayed(Duration(seconds: 2));
-        setState(() {
-          _statusMessage = 'Ready for recognition - Show your face';
-        });
-      }
-
-    } catch (e) {
-      setState(() {
-        _statusMessage = '❌ Recognition error: $e';
-      });
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _getStatusColor(),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _statusMessage,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: _isCameraReady
+                ? CameraPreview(_cameraService.controller!)
+                : const Center(child: CircularProgressIndicator()),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: ElevatedButton(
+              onPressed: _recognizeFace,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 50),
+              ),
+              child: const Text('Recognize Face'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
-
 
   @override
   void dispose() {
     _cameraService.dispose();
-    _faceRecognitionService.dispose(); // ⬅️ فكيت التعليق
+    _faceDetectionService.dispose();
     super.dispose();
   }
 }

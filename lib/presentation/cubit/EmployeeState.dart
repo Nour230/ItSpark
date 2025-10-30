@@ -1,4 +1,5 @@
 import '../../data/models/EmployeeModel.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 /// Base abstract state
 abstract class EmployeeState {
@@ -42,4 +43,10 @@ class FaceValid extends EmployeeState {
 class FaceInvalid extends EmployeeState {
   final String message;
   const FaceInvalid(this.message);
+}
+
+/// 🔹 حالة جديدة: Face detected from streaming frame
+class FaceValidFromStream extends EmployeeState {
+  final InputImage frame;
+  const FaceValidFromStream(this.frame);
 }

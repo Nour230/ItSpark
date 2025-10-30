@@ -1,14 +1,19 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/models/EmployeeModel.dart';
 import '../../data/repository/EmployeeRepository.dart';
 import '../../data/services/CameraService.dart';
 import '../../data/services/FaceDetectionService.dart';
 import 'EmployeeState.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 class EmployeeCubit extends Cubit<EmployeeState> {
   final EmployeeRepository _repository;
   final CameraService _cameraService;
   final FaceDetectionService _faceDetectionService;
+
+  Timer? _timer;
+  InputImage? _lastFrame;
 
   EmployeeCubit(
       this._repository,
@@ -16,48 +21,56 @@ class EmployeeCubit extends Cubit<EmployeeState> {
       this._faceDetectionService,
       ) : super(EmployeeInitial());
 
+  // ✅ تهيئة الكاميرا لعرض preview ومعالجة كل frame
   Future<void> initializeCamera() async {
     emit(EmployeeLoading());
     try {
-      await _cameraService.initializeCamera();
+      await _cameraService.initializeCamera((frame) {
+        _lastFrame = frame; // كل frame يأتي هنا
+      });
       emit(CameraReady());
     } catch (e) {
       emit(EmployeeError('Camera initialization failed: $e'));
     }
   }
 
+  // ✅ بدء عملية التعرف على الوجه كل 5 ثواني
+  void startFaceRecognition() {
+    _timer = Timer.periodic(Duration(seconds: 5), (_) async {
+      if (_lastFrame != null) {
+        await _processFrame(_lastFrame!);
+      }
+    });
+  }
 
-  // ✅ التقاط صورة + كشف الوجه
-  Future<void> captureFaceImage({required bool isUpdate}) async {
-    emit(EmployeeLoading());
+  Future<void> _processFrame(InputImage frame) async {
     try {
-      final imageFile = await _cameraService.takePicture();
-      final imagePath = imageFile.path;
-
-      final result = await _faceDetectionService.isFaceDetectedWithDetails(imagePath);
+      final result = await _faceDetectionService.isFaceDetected(frame);
       final isValidFace = result['isValidFace'] ?? false;
-      final message = result['message'] ?? 'No face detected';
 
       if (isValidFace) {
-        emit(FaceValid(imagePath));
-      } else {
-        emit(FaceInvalid(message));
+        emit(FaceValidFromStream(frame)); // يمكن إضافة حالة جديدة للتعامل مع streaming
       }
     } catch (e) {
-      emit(EmployeeError('Face capture failed: $e'));
+      print('Face recognition error: $e');
     }
   }
 
+  void stopFaceRecognition() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
   void disposeCamera() {
+    stopFaceRecognition();
     try {
       _cameraService.dispose();
     } catch (_) {}
   }
 
-  // ✅ Getter لاستخدام الكاميرا في الواجهة
+  // ✅ باقي الدوال كما هي
   CameraService get cameraService => _cameraService;
 
-  // ✅ إضافة موظف جديد
   Future<void> addEmployee(EmployeeModel employee) async {
     emit(EmployeeLoading());
     try {
@@ -68,7 +81,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     }
   }
 
-  // ✅ تحميل كل الموظفين
   Future<void> loadEmployees() async {
     emit(EmployeeLoading());
     try {
@@ -79,7 +91,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     }
   }
 
-  // ✅ حذف موظف
   Future<void> deleteEmployee(int id) async {
     emit(EmployeeLoading());
     try {
@@ -91,7 +102,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     }
   }
 
-  // ✅ تحديث بيانات موظف
   Future<void> updateEmployee(EmployeeModel employee) async {
     emit(EmployeeLoading());
     try {
@@ -103,7 +113,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     }
   }
 
-  // ✅ جلب موظف حسب الـ ID
   Future<EmployeeModel?> getEmployeeById(int id) async {
     try {
       return await _repository.getEmployeeById(id);
