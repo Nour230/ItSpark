@@ -1,16 +1,76 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../data/models/EmployeeModel.dart';
 import '../../data/repository/EmployeeRepository.dart';
+import '../../data/services/CameraService.dart';
+import '../../data/services/FaceDetectionService.dart';
 import 'EmployeeState.dart';
-
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 class EmployeeCubit extends Cubit<EmployeeState> {
   final EmployeeRepository _repository;
+  final CameraService _cameraService;
+  final FaceDetectionService _faceDetectionService;
 
-  EmployeeCubit(this._repository) : super(EmployeeInitial());
+  Timer? _timer;
+  InputImage? _lastFrame;
 
-  // إضافة موظف جديد
+  EmployeeCubit(
+      this._repository,
+      this._cameraService,
+      this._faceDetectionService,
+      ) : super(EmployeeInitial());
+
+  // ✅ تهيئة الكاميرا لعرض preview ومعالجة كل frame
+  Future<void> initializeCamera() async {
+    emit(EmployeeLoading());
+    try {
+      await _cameraService.initializeCamera((frame) {
+        _lastFrame = frame; // كل frame يأتي هنا
+      });
+      emit(CameraReady());
+    } catch (e) {
+      emit(EmployeeError('Camera initialization failed: $e'));
+    }
+  }
+
+  // ✅ بدء عملية التعرف على الوجه كل 5 ثواني
+  void startFaceRecognition() {
+    _timer = Timer.periodic(Duration(seconds: 5), (_) async {
+      if (_lastFrame != null) {
+        await _processFrame(_lastFrame!);
+      }
+    });
+  }
+
+  Future<void> _processFrame(InputImage frame) async {
+    try {
+      final result = await _faceDetectionService.isFaceDetected(frame);
+      final isValidFace = result['isValidFace'] ?? false;
+
+      if (isValidFace) {
+        emit(FaceValidFromStream(frame)); // يمكن إضافة حالة جديدة للتعامل مع streaming
+      }
+    } catch (e) {
+      print('Face recognition error: $e');
+    }
+  }
+
+  void stopFaceRecognition() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  void disposeCamera() {
+    stopFaceRecognition();
+    try {
+      _cameraService.dispose();
+    } catch (_) {}
+  }
+
+  // ✅ باقي الدوال كما هي
+  CameraService get cameraService => _cameraService;
+
   Future<void> addEmployee(EmployeeModel employee) async {
     emit(EmployeeLoading());
     try {
@@ -21,7 +81,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     }
   }
 
-  // جلب كل الموظفين
   Future<void> loadEmployees() async {
     emit(EmployeeLoading());
     try {
@@ -32,7 +91,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     }
   }
 
-  // حذف موظف
   Future<void> deleteEmployee(int id) async {
     emit(EmployeeLoading());
     try {
@@ -44,7 +102,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     }
   }
 
-  // تحديث بيانات الموظف
   Future<void> updateEmployee(EmployeeModel employee) async {
     emit(EmployeeLoading());
     try {
@@ -56,7 +113,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     }
   }
 
-  // جلب موظف بالـ ID
   Future<EmployeeModel?> getEmployeeById(int id) async {
     try {
       return await _repository.getEmployeeById(id);

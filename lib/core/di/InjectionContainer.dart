@@ -4,25 +4,37 @@ import 'package:itspark_task/data/local/EmployeeDatabaseService.dart';
 import '../../data/repository/EmployeeRepository.dart';
 import '../../data/repository/EmployeeRepositoryImpl.dart';
 import '../../presentation/cubit/EmployeeCubit.dart';
+import '../../data/services/CameraService.dart';
+import '../../data/services/FaceDetectionService.dart';
 
 final GetIt getIt = GetIt.instance;
 
-Future<void> init() async{
-  //database
+Future<void> init() async {
+  // ✅ Database
   getIt.registerLazySingleton<EmployeeDatabaseService>(
-      ()=>EmployeeDatabaseService()
+        () => EmployeeDatabaseService(),
   );
 
-  //repo
+  // ✅ Services
+  getIt.registerLazySingleton<CameraService>(
+        () => CameraService(),
+  );
+
+  getIt.registerLazySingleton<FaceDetectionService>(
+        () => FaceDetectionService(),
+  );
+
+  // ✅ Repository
   getIt.registerLazySingleton<EmployeeRepository>(
-      ()=>EmployeeRepositoryImpl()
+        () => EmployeeRepositoryImpl(),
   );
 
-  // Cubits
+  // ✅ Cubit (الآن مع 3 dependencies)
   getIt.registerFactory<EmployeeCubit>(
-        () => EmployeeCubit(getIt<EmployeeRepository>()),
+        () => EmployeeCubit(
+      getIt<EmployeeRepository>(),
+      getIt<CameraService>(),
+      getIt<FaceDetectionService>(),
+    ),
   );
-
-  //viewmodel
-
 }

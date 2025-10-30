@@ -7,6 +7,7 @@ import '../../core/navigation/AppRoutes.dart';
 import '../../data/models/EmployeeModel.dart';
 import '../cubit/EmployeeCubit.dart';
 import '../cubit/EmployeeState.dart';
+import 'EmployeeDetailsBottomSheet.dart';
 
 class EmployeeListScreen extends StatefulWidget {
   const EmployeeListScreen({super.key});
@@ -22,7 +23,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   @override
   void initState() {
     super.initState();
-    // تحميل الموظفين عند فتح الشاشة
     context.read<EmployeeCubit>().loadEmployees();
     _searchController.addListener(_filterEmployees);
   }
@@ -46,7 +46,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     return Scaffold(
       body: Column(
         children: [
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -61,7 +60,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
             ),
           ),
 
-          // Employee List
           Expanded(
             child: BlocBuilder<EmployeeCubit, EmployeeState>(
               builder: (context, state) {
@@ -87,8 +85,9 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                     );
                   }
 
-                  return ListView.builder(
+                  return ListView.separated(
                     itemCount: employees.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final employee = employees[index];
                       return _buildEmployeeCard(employee);
@@ -107,65 +106,82 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
 
   Widget _buildEmployeeCard(EmployeeModel employee) {
     return Card(
+      color: Colors.black87,
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: ListTile(
-        leading: _buildEmployeeAvatar(employee),
-        title: Text(
-          employee.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('ID: ${employee.id}'),
-            Text('Images: ${employee.calibrationImages.length + 1}'),
-          ],
-        ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            const PopupMenuItem(
-              value: 'edit',
-              child: Row(
-                children: [
-                  Icon(Icons.edit, size: 20),
-                  SizedBox(width: 8),
-                  Text('Edit'),
-                ],
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),
+        child: ListTile(
+          leading: _buildEmployeeAvatar(employee),
+          title: Text(
+            employee.name,
+            style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: Colors.white),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('ID: ${employee.id}',
+          style: const TextStyle(
+          fontWeight: FontWeight.normal,
+              fontSize: 14,
+              color: Colors.white),),
+            ],
+          ),
+          trailing: PopupMenuButton(
+            iconColor: Colors.white,
+            color: Colors.white70,
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 20),
+                    SizedBox(width: 8),
+                    Text('Edit'),
+                  ],
+                ),
               ),
-            ),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Row(
-                children: [
-                  Icon(Icons.delete, color: Colors.red, size: 20),
-                  SizedBox(width: 8),
-                  Text('Delete', style: TextStyle(color: Colors.red)),
-                ],
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Text('Delete', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
               ),
-            ),
-          ],
-          onSelected: (value) {
-            if (value == 'edit') {
-              Navigator.pushNamed(
-                context,
-                AppRoutes.employeeDetails,
-                arguments: employee,
-              );
-            } else if (value == 'delete') {
-              _showDeleteDialog(employee);
-            }
+            ],
+            onSelected: (value) {
+              if (value == 'edit') {
+                _showEmployeeDetailsBottomSheet(employee);
+              } else if (value == 'delete') {
+                _showDeleteDialog(employee);
+              }
+            },
+          ),
+          onTap: () {
+              _showEmployeeDetailsBottomSheet(employee);
           },
         ),
-        onTap: () {
-          Navigator.pushNamed(
-            context,
-            AppRoutes.employeeDetails,
-            arguments: employee,
-          );
-        },
       ),
     );
   }
+
+  void _showEmployeeDetailsBottomSheet(EmployeeModel employee) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => FractionallySizedBox(
+        heightFactor: 0.7,
+        child: EmployeeDetailsBottomSheet(employee: employee),
+      ),
+    );
+  }
+
 
   void _showDeleteDialog(EmployeeModel employee) {
     showDialog(
@@ -191,17 +207,13 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   void _deleteEmployee(EmployeeModel employee) async {
     try {
       if (employee.id != null) {
-        // إخفاء الدايلوج أولاً
         Navigator.pop(context);
-
         await context.read<EmployeeCubit>().deleteEmployee(employee.id!);
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${employee.name} deleted successfully')),
         );
       }
     } catch (e) {
-      // إذا حصل error، نخفي الدايلوج ونظهر error
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error deleting employee: $e')),
@@ -214,15 +226,13 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
       future: _getImageFile(employee.profileImagePath),
       builder: (context, snapshot) {
         if (snapshot.hasData && snapshot.data!.existsSync()) {
-          // عرض الصورة الحقيقية
           return CircleAvatar(
             backgroundImage: FileImage(snapshot.data!),
-            radius: 25,
+            radius: 35,
           );
         } else {
-          // إذا الصورة مش موجودة نعرض بديل
           return CircleAvatar(
-            backgroundColor: Colors.blue,
+            backgroundColor: Colors.white60,
             child: Text(
               employee.name[0].toUpperCase(),
               style: const TextStyle(
