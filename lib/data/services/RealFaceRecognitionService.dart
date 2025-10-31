@@ -4,36 +4,31 @@ import '../../data/models/EmployeeModel.dart';
 class RealFaceRecognitionService {
   final FaceDetector _faceDetector = FaceDetector(
     options: FaceDetectorOptions(
-      enableClassification: true, // للتبسم وحالة العيون
+      enableClassification: true,
       enableContours: true,
     ),
   );
 
-  // ✅ كشف إذا يوجد وجه في الـ InputImage
   Future<bool> isFaceDetected(InputImage frame) async {
     final faces = await _faceDetector.processImage(frame);
     return faces.isNotEmpty;
   }
 
-  // ✅ مقارنة الوجه مع موظف معين
   Future<double> compareFaceWithEmployee(InputImage frame, EmployeeModel employee) async {
     final faces = await _faceDetector.processImage(frame);
     if (faces.isEmpty) return 0.0;
 
     final inputFace = faces.first;
 
-    // استخراج الـ Face الخاص بالموظف من الصورة المخزنة
     final employeeImage = InputImage.fromFilePath(employee.profileImagePath);
     final employeeFaces = await _faceDetector.processImage(employeeImage);
     if (employeeFaces.isEmpty) return 0.0;
 
     final employeeFace = employeeFaces.first;
 
-    // استخدام الـ compareFaces الحالي
     return compareFaces(inputFace, employeeFace);
   }
 
-  // ✅ المقارنة نفسها بين وجهين
   Future<double> compareFaces(Face face1, Face face2) async {
     double total = 0.0;
     int count = 0;
@@ -52,7 +47,7 @@ class RealFaceRecognitionService {
     }
 
     if (count == 0) return 0.0;
-    return total / count; // نتيجة بين 0 و1
+    return total / count;
   }
 
   void dispose() {

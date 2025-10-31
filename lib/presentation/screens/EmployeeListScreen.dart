@@ -23,7 +23,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     super.initState();
     _searchController.addListener(_filterEmployees);
 
-    // Load employees when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<EmployeeCubit>().loadEmployees();
       _isInitialLoad = false;
@@ -65,7 +64,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
           Expanded(
             child: BlocConsumer<EmployeeCubit, EmployeeState>(
               listener: (context, state) {
-                // Handle side effects like showing messages
                 if (state is EmployeeError) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Error: ${state.message}')),
@@ -73,7 +71,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                 }
               },
               builder: (context, state) {
-                // Show loading only for initial load or when explicitly loading
                 if (_isInitialLoad || state is EmployeeLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -132,7 +129,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                   );
                 }
 
-                // Default state - no employees
                 return const Center(
                   child: Text(
                     'No employees found',
@@ -224,7 +220,6 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         child: EmployeeDetailsBottomSheet(employee: employee),
       ),
     ).then((result) {
-      // Refresh list if employee was updated
       if (result == true) {
         context.read<EmployeeCubit>().loadEmployees();
       }
@@ -255,9 +250,8 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   void _deleteEmployee(EmployeeModel employee) async {
     try {
       if (employee.id != null) {
-        Navigator.pop(context); // Close dialog
+        Navigator.pop(context);
         await context.read<EmployeeCubit>().deleteEmployee(employee.id!);
-        // No need to manually reload - the state change will trigger rebuild
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${employee.name} deleted successfully')),
         );

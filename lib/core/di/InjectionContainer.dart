@@ -10,12 +10,12 @@ import '../../data/services/FaceDetectionService.dart';
 final GetIt getIt = GetIt.instance;
 
 Future<void> init() async {
-  // ✅ Database
+  // Database
   getIt.registerLazySingleton<EmployeeDatabaseService>(
         () => EmployeeDatabaseService(),
   );
 
-  // ✅ Services
+  // Services
   getIt.registerLazySingleton<CameraService>(
         () => CameraService(),
   );
@@ -24,12 +24,12 @@ Future<void> init() async {
         () => FaceDetectionService(),
   );
 
-  // ✅ Repository
+  // Repository
   getIt.registerLazySingleton<EmployeeRepository>(
         () => EmployeeRepositoryImpl(),
   );
 
-  // ✅ Cubit (الآن مع 3 dependencies)
+  // Cubit
   getIt.registerFactory<EmployeeCubit>(
         () => EmployeeCubit(
       getIt<EmployeeRepository>(),

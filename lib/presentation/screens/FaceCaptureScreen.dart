@@ -49,7 +49,6 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen> {
     _cameraService = CameraService();
     _faceDetectionService = FaceDetectionService();
 
-    // ✅ Pass a callback as required
     await _cameraService.initializeCamera((_) {});
 
     setState(() {

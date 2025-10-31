@@ -40,9 +40,7 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
       _faceDetectionService = FaceDetectionService();
       _faceRecognitionService = RealFaceRecognitionService();
 
-      // Camera initialization with frame callback
       await _cameraService.initializeCamera((frame) {
-        // كل Frame يمكن استخدامه لاحقًا
       });
 
       setState(() {
@@ -65,14 +63,11 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
     });
 
     try {
-      // 1️⃣ Capture image
       final imageFile = await _cameraService.takePicture();
       final capturedImagePath = imageFile.path;
 
-      // 2️⃣ Convert to InputImage
       final inputImage = InputImage.fromFilePath(capturedImagePath);
 
-      // 3️⃣ Detect face
       final detectionResult = await _faceDetectionService.isFaceDetected(inputImage);
       if (!detectionResult['isValidFace']) {
         setState(() {
@@ -84,7 +79,6 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
 
       final Face capturedFace = detectionResult['face'];
 
-      // 4️⃣ Load employees
       await context.read<EmployeeCubit>().loadEmployees();
       final state = context.read<EmployeeCubit>().state;
 
@@ -101,7 +95,6 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
         _statusMessage = '🔍 Comparing with ${employees.length} employees...';
       });
 
-      // 5️⃣ Compare with employees
       EmployeeModel? recognizedEmployee;
       double highestSimilarity = 0.0;
 
@@ -124,13 +117,11 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
         }
       }
 
-      // 6️⃣ Show result
       if (recognizedEmployee != null && highestSimilarity > 0.6) {
         setState(() {
           _statusMessage = '✅ Employee recognized: ${recognizedEmployee?.name}';
         });
 
-        // عرض البيانات في popup بدلاً من الانتقال لصفحة التفاصيل
         _showEmployeePopup(recognizedEmployee);
 
       } else {
@@ -160,9 +151,8 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
   void _showEmployeePopup(EmployeeModel employee) {
     showDialog(
       context: context,
-      barrierDismissible: false, // المستخدم مايقدرش يغلق الدايلوج بالضغط خارجها
+      barrierDismissible: false,
       builder: (BuildContext context) {
-        // تأخير إغلاق البوب أب تلقائياً بعد 3 ثواني
         Future.delayed(const Duration(seconds: 3), () {
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
@@ -183,7 +173,6 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // صورة الموظف
               Container(
                 width: 100,
                 height: 100,
@@ -198,7 +187,6 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
               ),
               const SizedBox(height: 16),
 
-              // بيانات الموظف
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(

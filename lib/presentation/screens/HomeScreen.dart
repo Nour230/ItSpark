@@ -53,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-      // ✅ Show FAB only when currentIndex == 0 (Home tab)
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
         foregroundColor: Colors.white,
@@ -75,7 +74,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: const AddEmployeeScreen(),
       ),
     ).then((result) {
-      // Refresh employee list when returning from AddEmployeeScreen
       if (result == true) {
         context.read<EmployeeCubit>().loadEmployees();
       }
