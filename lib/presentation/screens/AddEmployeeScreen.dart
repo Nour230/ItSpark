@@ -40,8 +40,12 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black),
               onPressed: _goToFaceCapture,
-              child: const Text('Next'),
+              child: const Text('Next',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ),
         ],

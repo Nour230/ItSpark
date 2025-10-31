@@ -10,7 +10,6 @@ import '../../data/services/FaceDetectionService.dart';
 import '../../data/services/RealFaceRecognitionService.dart';
 import '../cubit/EmployeeCubit.dart';
 import '../../data/models/EmployeeModel.dart';
-import '../../core/navigation/AppRoutes.dart';
 import '../cubit/EmployeeState.dart';
 
 class FaceRecognitionScreen extends StatefulWidget {

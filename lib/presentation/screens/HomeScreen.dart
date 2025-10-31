@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/navigation/AppRoutes.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../cubit/EmployeeCubit.dart';
 import 'AddEmployeeScreen.dart';
 import 'EmployeeListScreen.dart';
 import 'FaceRecognitionScreen.dart';
@@ -73,6 +74,18 @@ class _HomeScreenState extends State<HomeScreen> {
         heightFactor: 0.6,
         child: const AddEmployeeScreen(),
       ),
-    );
+    ).then((result) {
+      // Refresh employee list when returning from AddEmployeeScreen
+      if (result == true) {
+        context.read<EmployeeCubit>().loadEmployees();
+      }
+    });
   }
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+
+
 }

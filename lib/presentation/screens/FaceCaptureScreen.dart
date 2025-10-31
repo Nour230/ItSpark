@@ -111,9 +111,11 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen> {
                       child: ElevatedButton(
                         onPressed: _previousStep,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
+                          backgroundColor: Colors.black54,
                         ),
-                        child: const Text('Previous'),
+                        child: const Text('Previous',
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ),
                     ),
                   if (_currentStep > 0) const SizedBox(width: 10),
@@ -121,7 +123,7 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen> {
                     child: ElevatedButton(
                       onPressed: _isCameraReady ? _captureImage : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _isUpdating ? Colors.orange : Colors.green,
+                        backgroundColor: _isUpdating ? Colors.black : Colors.green,
                       ),
                       child: Text(
                         _currentStep == _totalImages - 1
@@ -129,6 +131,7 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen> {
                             : _isUpdating
                             ? 'Update'
                             : 'Capture',
+                        style: const TextStyle(color: Colors.white),
                       ),
                     ),
                   ),
