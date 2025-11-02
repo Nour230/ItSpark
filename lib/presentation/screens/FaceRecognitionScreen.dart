@@ -7,10 +7,9 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import '../../data/services/CameraService.dart';
 import '../../data/services/FaceDetectionService.dart';
-import '../../data/services/RealFaceRecognitionService.dart';
+import '../../data/services/SmartFaceRecognitionService.dart';
 import '../cubit/EmployeeCubit.dart';
 import '../../data/models/EmployeeModel.dart';
-import '../../core/navigation/AppRoutes.dart';
 import '../cubit/EmployeeState.dart';
 
 class FaceRecognitionScreen extends StatefulWidget {
@@ -23,11 +22,12 @@ class FaceRecognitionScreen extends StatefulWidget {
 class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
   late CameraService _cameraService;
   late FaceDetectionService _faceDetectionService;
-  late RealFaceRecognitionService _faceRecognitionService;
+  late SmartFaceRecognitionService _faceRecognitionService;
 
   bool _isCameraReady = false;
   bool _isRecognizing = false;
   String _statusMessage = 'Initializing camera...';
+  bool _isDatabaseLoaded = false;
 
   @override
   void initState() {
@@ -39,12 +39,12 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
     try {
       _cameraService = CameraService();
       _faceDetectionService = FaceDetectionService();
-      _faceRecognitionService = RealFaceRecognitionService();
+      _faceRecognitionService = SmartFaceRecognitionService();
 
-      // Camera initialization with frame callback
       await _cameraService.initializeCamera((frame) {
-        // كل Frame يمكن استخدامه لاحقًا
       });
+
+      await _loadAndRegisterEmployees();
 
       setState(() {
         _isCameraReady = true;
@@ -57,8 +57,54 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
     }
   }
 
+  Future<void> _loadAndRegisterEmployees() async {
+    try {
+      setState(() {
+        _statusMessage = '📦 Loading employees database...';
+      });
+
+      await context.read<EmployeeCubit>().loadEmployees();
+      final state = context.read<EmployeeCubit>().state;
+
+      if (state is! EmployeeLoaded || state.employees.isEmpty) {
+        setState(() {
+          _statusMessage = '❌ No employees in database';
+        });
+        return;
+      }
+
+      final employees = state.employees;
+
+      _faceRecognitionService.loadEmployees(employees);
+
+      int validEmployees = 0;
+      for (final employee in employees) {
+        final validationResult = await _faceRecognitionService.validateEmployeeImages(employee);
+        if (validationResult['isValid']) {
+          validEmployees++;
+          print('✅ Valid employee: ${employee.name}');
+        } else {
+          print('❌ Invalid employee: ${employee.name} - ${validationResult['errors']}');
+        }
+      }
+
+      setState(() {
+        _isDatabaseLoaded = validEmployees > 0;
+        _statusMessage = '✅ Loaded $validEmployees/${employees.length} valid employees';
+      });
+
+      final stats = _faceRecognitionService.getDatabaseStats();
+      print('🎯 Database Stats: $stats');
+
+    } catch (e) {
+      setState(() {
+        _statusMessage = '❌ Database loading error: $e';
+      });
+    }
+  }
+
   Future<void> _recognizeFace() async {
-    if (!_isCameraReady || _isRecognizing) return;
+    if (!_isCameraReady || _isRecognizing || !_isDatabaseLoaded) return;
 
     setState(() {
       _isRecognizing = true;
@@ -66,80 +112,46 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
     });
 
     try {
-      // 1️⃣ Capture image
       final imageFile = await _cameraService.takePicture();
-      final capturedImagePath = imageFile.path;
+      final inputImage = InputImage.fromFilePath(imageFile.path);
 
-      // 2️⃣ Convert to InputImage
-      final inputImage = InputImage.fromFilePath(capturedImagePath);
-
-      // 3️⃣ Detect face
-      final detectionResult = await _faceDetectionService.isFaceDetected(inputImage);
-      if (!detectionResult['isValidFace']) {
-        setState(() {
-          _statusMessage = '❌ ${detectionResult['message']}';
-          _isRecognizing = false;
-        });
-        return;
-      }
-
-      final Face capturedFace = detectionResult['face'];
-
-      // 4️⃣ Load employees
-      await context.read<EmployeeCubit>().loadEmployees();
-      final state = context.read<EmployeeCubit>().state;
-
-      if (state is! EmployeeLoaded || state.employees.isEmpty) {
-        setState(() {
-          _statusMessage = '❌ No employees in database';
-          _isRecognizing = false;
-        });
-        return;
-      }
-
-      final employees = state.employees;
       setState(() {
-        _statusMessage = '🔍 Comparing with ${employees.length} employees...';
+        _statusMessage = '🔍 Recognizing face...';
       });
 
-      // 5️⃣ Compare with employees
-      EmployeeModel? recognizedEmployee;
-      double highestSimilarity = 0.0;
+      final recognitionResult = await _faceRecognitionService.processFace(inputImage);
 
-      for (final employee in employees) {
-        try {
-          final employeeInputImage = InputImage.fromFilePath(employee.profileImagePath);
-          final employeeDetection = await _faceDetectionService.isFaceDetected(employeeInputImage);
+      if (recognitionResult.isRecognized) {
+        final employeeId = recognitionResult.userId;
+        final confidence = recognitionResult.confidence ?? 0.0;
 
-          if (!employeeDetection['isValidFace']) continue;
+        await context.read<EmployeeCubit>().loadEmployees();
+        final state = context.read<EmployeeCubit>().state;
 
-          final Face employeeFace = employeeDetection['face'];
+        if (state is EmployeeLoaded) {
+          final employee = state.employees.firstWhere(
+                (emp) => emp.id.toString() == employeeId,
+            orElse: () => EmployeeModel(id: -1, name: 'Unknown', profileImagePath: '', calibrationImages: []),
+          );
 
-          final similarity = await _faceRecognitionService.compareFaces(capturedFace, employeeFace);
-          if (similarity > highestSimilarity) {
-            highestSimilarity = similarity;
-            recognizedEmployee = employee;
+          if (employee.id != -1) {
+            setState(() {
+              _statusMessage = '✅ Recognized: ${employee.name} (${(confidence * 100).toStringAsFixed(1)}%)';
+            });
+
+            _showEmployeePopup(employee, confidence);
+          } else {
+            setState(() {
+              _statusMessage = '❌ Employee data not found';
+            });
           }
-        } catch (e) {
-          print('Error comparing with ${employee.name}: $e');
         }
-      }
-
-      // 6️⃣ Show result
-      if (recognizedEmployee != null && highestSimilarity > 0.6) {
-        setState(() {
-          _statusMessage = '✅ Employee recognized: ${recognizedEmployee?.name}';
-        });
-
-        // عرض البيانات في popup بدلاً من الانتقال لصفحة التفاصيل
-        _showEmployeePopup(recognizedEmployee);
-
       } else {
         setState(() {
-          _statusMessage = '❌ Employee not found';
+          _statusMessage = '❌ ${recognitionResult.message}';
         });
 
-        await Future.delayed(const Duration(seconds: 4));
+        await Future.delayed(const Duration(seconds: 3));
         if (mounted) {
           setState(() {
             _statusMessage = 'Ready - Show your face';
@@ -158,12 +170,11 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
     }
   }
 
-  void _showEmployeePopup(EmployeeModel employee) {
+  void _showEmployeePopup(EmployeeModel employee, double confidence) {
     showDialog(
       context: context,
-      barrierDismissible: false, // المستخدم مايقدرش يغلق الدايلوج بالضغط خارجها
+      barrierDismissible: false,
       builder: (BuildContext context) {
-        // تأخير إغلاق البوب أب تلقائياً بعد 3 ثواني
         Future.delayed(const Duration(seconds: 3), () {
           if (Navigator.of(context).canPop()) {
             Navigator.of(context).pop();
@@ -184,7 +195,6 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // صورة الموظف
               Container(
                 width: 100,
                 height: 100,
@@ -199,7 +209,23 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
               ),
               const SizedBox(height: 16),
 
-              // بيانات الموظف
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _getConfidenceColor(confidence),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Confidence: ${(confidence * 100).toStringAsFixed(1)}%',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -241,6 +267,12 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
     );
   }
 
+  Color _getConfidenceColor(double confidence) {
+    if (confidence > 0.8) return Colors.green;
+    if (confidence > 0.6) return Colors.orange;
+    return Colors.red;
+  }
+
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -269,6 +301,8 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
   Color _getStatusColor() {
     if (_statusMessage.contains('❌')) return Colors.red;
     if (_statusMessage.contains('✅')) return Colors.green;
+    if (_statusMessage.contains('🔍')) return Colors.orange;
+    if (_statusMessage.contains('📦')) return Colors.purple;
     return Colors.blue;
   }
 
@@ -284,31 +318,61 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
               color: _getStatusColor(),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
-              _statusMessage,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
+            child: Column(
+              children: [
+                Text(
+                  _statusMessage,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (_isDatabaseLoaded)
+                  Text(
+                    '${_faceRecognitionService.registeredEmployeesCount} employees in database',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white70,
+                    ),
+                  ),
+              ],
             ),
           ),
+
           Expanded(
             child: _isCameraReady
                 ? CameraPreview(_cameraService.controller!)
                 : const Center(child: CircularProgressIndicator()),
           ),
+
           Padding(
             padding: const EdgeInsets.all(16),
             child: ElevatedButton(
-              onPressed: _recognizeFace,
+              onPressed: _isDatabaseLoaded ? _recognizeFace : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: _isDatabaseLoaded ? Colors.green : Colors.grey,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 50),
               ),
-              child: const Text('Recognize Face'),
+              child: _isRecognizing
+                  ? const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Text('Recognizing...'),
+                ],
+              )
+                  : const Text('Recognize Face'),
             ),
           ),
         ],
@@ -320,6 +384,7 @@ class _FaceRecognitionScreenState extends State<FaceRecognitionScreen> {
   void dispose() {
     _cameraService.dispose();
     _faceDetectionService.dispose();
+    _faceRecognitionService.dispose();
     super.dispose();
   }
 }

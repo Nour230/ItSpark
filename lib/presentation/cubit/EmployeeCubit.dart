@@ -74,8 +74,8 @@ class EmployeeCubit extends Cubit<EmployeeState> {
   Future<void> addEmployee(EmployeeModel employee) async {
     emit(EmployeeLoading());
     try {
-      final employeeId = await _repository.addEmployee(employee);
-      emit(EmployeeAdded(employeeId));
+      final employees = await _repository.getAllEmployees();
+      emit(EmployeeLoaded(employees));
     } catch (e) {
       emit(EmployeeError('Failed to add employee: $e'));
     }
