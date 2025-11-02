@@ -60,13 +60,14 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen> {
   Widget build(BuildContext context) {
     return BlocListener<EmployeeCubit, EmployeeState>(
       listener: (context, state) {
-        if (state is EmployeeAdded) {
+        if (state is EmployeeLoaded) {
+          // ✅ تم تحميل البيانات بنجاح، العودة للشاشة الرئيسية
           Navigator.popUntil(context, (route) => route.isFirst);
-        } else if (state is EmployeeLoaded) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Employee updated successfully')),
+            SnackBar(content: Text(_isUpdating ?
+            'Employee updated successfully' :
+            'Employee added successfully')),
           );
-          Navigator.pop(context, true);
         } else if (state is EmployeeError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: ${state.message}')),
@@ -238,7 +239,10 @@ class _FaceCaptureScreenState extends State<FaceCaptureScreen> {
         profileImagePath: profileImage,
         calibrationImages: calibrationImages,
       );
-      context.read<EmployeeCubit>().addEmployee(newEmployee);
+      context.read<EmployeeCubit>().addEmployee(newEmployee).then((_) {
+        // ✅ إعادة تحميل قائمة الموظفين بعد الإضافة
+        context.read<EmployeeCubit>().loadEmployees();
+      });
     }
   }
 

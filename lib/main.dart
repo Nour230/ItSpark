@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider<EmployeeCubit>(
-          create: (context) => di.getIt<EmployeeCubit>(),
+          create: (context) => di.getIt<EmployeeCubit>()..loadEmployees(),
         ),
       ],
       child: MaterialApp(
