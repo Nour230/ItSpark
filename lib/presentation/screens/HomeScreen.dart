@@ -24,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // ✅ تحميل البيانات عند بدء التشغيل
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<EmployeeCubit>().loadEmployees();
     });
@@ -34,7 +33,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return BlocListener<EmployeeCubit, EmployeeState>(
       listener: (context, state) {
-        // ✅ أي تغيير في حالة الموظفين سيؤدي لإعادة تحميل البيانات
         if (state is EmployeeAdded) {
           context.read<EmployeeCubit>().loadEmployees();
         }
@@ -91,11 +89,18 @@ class _HomeScreenState extends State<HomeScreen> {
         heightFactor: 0.6,
         child: const AddEmployeeScreen(),
       ),
-    );
+    ).then((result) {
+      if (result == true) {
+        context.read<EmployeeCubit>().loadEmployees();
+      }
+    });
+  }
+  @override
+  void dispose() {
+    super.dispose();
   }
   @override
   void didChangeDependencies() {
-    // TODO: implement didChangeDependencies
     super.didChangeDependencies();
     context.read<EmployeeCubit>().loadEmployees();
   }

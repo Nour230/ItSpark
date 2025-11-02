@@ -21,12 +21,11 @@ class EmployeeCubit extends Cubit<EmployeeState> {
       this._faceDetectionService,
       ) : super(EmployeeInitial());
 
-  // ✅ تهيئة الكاميرا لعرض preview ومعالجة كل frame
   Future<void> initializeCamera() async {
     emit(EmployeeLoading());
     try {
       await _cameraService.initializeCamera((frame) {
-        _lastFrame = frame; // كل frame يأتي هنا
+        _lastFrame = frame;
       });
       emit(CameraReady());
     } catch (e) {
@@ -34,7 +33,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     }
   }
 
-  // ✅ بدء عملية التعرف على الوجه كل 5 ثواني
   void startFaceRecognition() {
     _timer = Timer.periodic(Duration(seconds: 5), (_) async {
       if (_lastFrame != null) {
@@ -49,7 +47,7 @@ class EmployeeCubit extends Cubit<EmployeeState> {
       final isValidFace = result['isValidFace'] ?? false;
 
       if (isValidFace) {
-        emit(FaceValidFromStream(frame)); // يمكن إضافة حالة جديدة للتعامل مع streaming
+        emit(FaceValidFromStream(frame));
       }
     } catch (e) {
       print('Face recognition error: $e');
@@ -68,7 +66,6 @@ class EmployeeCubit extends Cubit<EmployeeState> {
     } catch (_) {}
   }
 
-  // ✅ باقي الدوال كما هي
   CameraService get cameraService => _cameraService;
 
   Future<void> addEmployee(EmployeeModel employee) async {

@@ -19,12 +19,10 @@ class RouteGenerator {
       case AppRoutes.faceCapture:
         final faceArgs = settings.arguments;
         if (faceArgs is String) {
-          // إضافة موظف جديد
           return MaterialPageRoute(
             builder: (_) => FaceCaptureScreen(employeeName: faceArgs),
           );
         } else if (faceArgs is Map<String, dynamic>) {
-          // تحديث موظف موجود
           return MaterialPageRoute(
             builder: (_) => FaceCaptureScreen(
               employeeName: faceArgs['name'],
@@ -35,7 +33,7 @@ class RouteGenerator {
         return _errorRoute();
         
       case AppRoutes.employeeDetails:
-        final employeeArgs = settings.arguments; // احذفي as String
+        final employeeArgs = settings.arguments;
         if (employeeArgs is EmployeeModel) {
           return MaterialPageRoute(
             builder: (_) => EmployeeDetailsScreen(employee: employeeArgs),

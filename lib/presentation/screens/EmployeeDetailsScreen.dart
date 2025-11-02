@@ -190,7 +190,7 @@ class _EmployeeDetailsScreenState extends State<EmployeeDetailsScreen> {
                 },
               ),
 
-              // ✏️ Edit Icon
+              // Edit Icon
               Positioned(
                 bottom: 0,
                 right: 4,

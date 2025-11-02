@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.itspark_task"
-    compileSdk = 36
+    compileSdk = 36 // ✅ مهم جدًا عشان error lStar
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -19,8 +19,8 @@ android {
 
     defaultConfig {
         applicationId = "com.example.itspark_task"
-        minSdk = flutter.minSdkVersion // غيري إلى 21
-        targetSdk = 33
+        minSdk = flutter.minSdkVersion // ✅ اكتبيها كده صراحة
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
     }
@@ -28,12 +28,19 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            isShrinkResources = false // تأكدي أن هذا false
+            isShrinkResources = false
             signingConfig = signingConfigs.getByName("debug")
         }
         debug {
             isMinifyEnabled = false
-            isShrinkResources = false // أضيفي هذا للـ debug أيضاً
+            isShrinkResources = false
+        }
+    }
+
+    configurations.all {
+        resolutionStrategy {
+            force("androidx.core:core-ktx:1.12.0")
+            force("androidx.appcompat:appcompat:1.6.1")
         }
     }
 }
@@ -43,5 +50,7 @@ flutter {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.10")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.24")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
 }

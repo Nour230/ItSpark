@@ -33,14 +33,12 @@ class EmployeeDatabaseService {
     ''');
   }
 
-  // إضافة موظف جديد
   Future<int> insertEmployee(EmployeeModel employee) async {
     final db = await database;
     employee.createdAt = DateTime.now();
     return await db.insert('employees', employee.toMap());
   }
 
-  // جلب كل الموظفين
   Future<List<EmployeeModel>> getAllEmployees() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('employees');
@@ -50,7 +48,6 @@ class EmployeeDatabaseService {
 
   }
 
-  // جلب موظف بالـ ID
   Future<EmployeeModel?> getEmployeeById(int id) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -64,7 +61,6 @@ class EmployeeDatabaseService {
     return null;
   }
 
-  // تحديث بيانات الموظف (ما عدا الـ ID)
   Future<int> updateEmployee(EmployeeModel employee) async {
     final db = await database;
     return await db.update(
@@ -75,7 +71,6 @@ class EmployeeDatabaseService {
     );
   }
 
-  // حذف موظف
   Future<int> deleteEmployee(int id) async {
     final db = await database;
     return await db.delete(
